@@ -3,7 +3,7 @@ import requests
 
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 HF_MODEL_URL = (
-    "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+    "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6"
 )
 
 
