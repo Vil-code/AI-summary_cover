@@ -47,7 +47,6 @@ AI-summary-cover/
     └── dist/
 ```
 
-
 ## 🧾 License
 
 MIT License © 2025 – Vilhelmi Rintanen  
