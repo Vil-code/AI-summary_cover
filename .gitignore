@@ -1,0 +1,60 @@
+# ---------------------------
+# OS / editor junk
+# ---------------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# ---------------------------
+# Environment & secrets
+# ---------------------------
+.env
+*.env
+.env.*
+backend/.env
+frontend/.env
+# (never commit real API keys)
+
+# ---------------------------
+# Python / Flask backend
+# ---------------------------
+venv/
+.venv/
+env/
+ENV/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+
+# ---------------------------
+# Node / React frontend
+# ---------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+frontend/.eslintcache
+
+# ---------------------------
+# Logs / misc
+# ---------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+coverage/
+*.coverage
+*.pid
+*.seed
+*.out
+*.pid.lock
