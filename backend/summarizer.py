@@ -1,10 +1,16 @@
 import os
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 
-HF_MODEL_NAME = "sshleifer/distilbart-cnn-12-6"
-HF_API_BASE = "https://router.huggingface.co/hf-inference"
+HF_API_BASE = "https://router.huggingface.co/hf-inference/models"
+HF_SUM_MODEL = "facebook/bart-large-cnn"
+HF_SUM_URL = f"{HF_API_BASE}/{HF_SUM_MODEL}"
+
+HEADERS = {"Authorization": f"Bearer {HF_API_TOKEN}"} if HF_API_TOKEN else {}
 
 
 def summarize_article_text(text: str) -> str:
@@ -13,36 +19,35 @@ def summarize_article_text(text: str) -> str:
 
     text = text[:1200]
 
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
     payload = {
-        "model": HF_MODEL_NAME,
         "inputs": text,
         "parameters": {
-            "max_length": 180,
-            "min_length": 40,
+            "max_length": 130,
+            "min_length": 30,
             "do_sample": False,
         },
     }
 
     try:
-        resp = requests.post(
-            HF_API_BASE, headers=headers, json=payload, timeout=25
-        )
-    except requests.exceptions.ReadTimeout:
-        return "Hugging Face endpoint was too slow (model may be loading). Try again."
+        resp = requests.post(HF_SUM_URL, headers=HEADERS, json=payload, timeout=60)
+    except Exception as e:
+        return f"HF summarization network error: {e}"
 
-    if resp.status_code == 503:
-        return "Hugging Face model is loading — try again."
-    if resp.status_code == 410:
-        return "HF router: old API endpoint retired. Make sure you're using https://router.huggingface.co/hf-inference."
     if resp.status_code != 200:
-        return f"HF API error {resp.status_code}: {resp.text[:200]}"
+        return f"HF summarization error {resp.status_code}: {resp.text[:300]}"
 
-    data = resp.json()
+    try:
+        data = resp.json()
+    except Exception as e:
+        return f"HF summarization parse error: {e}"
 
-    if isinstance(data, list) and data and "summary_text" in data[0]:
-        return data[0]["summary_text"]
-    if isinstance(data, dict) and "generated_text" in data:
-        return data["generated_text"]
+    if isinstance(data, list) and data:
+        first = data[0]
+        if isinstance(first, dict):
+            return first.get("summary_text") or first.get("generated_text") or str(first)
+        return str(first)
 
-    return "Could not read summary from Hugging Face."
+    if isinstance(data, dict):
+        return data.get("summary_text") or data.get("generated_text") or str(data)
+
+    return str(data)

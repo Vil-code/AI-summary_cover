@@ -1,5 +1,6 @@
 flask
 flask-cors
-python-dotenv
 requests
+huggingface_hub
 gunicorn
+python-dotenv

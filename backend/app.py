@@ -1,25 +1,34 @@
 import os
+import io
 import base64
 import requests
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from dotenv import load_dotenv
 
 from providers import get_items
 from summarizer import summarize_article_text
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 
-HF_API_BASE = "https://router.huggingface.co/hf-inference"
-HF_IMG_MODEL = "stabilityai/stable-diffusion-xl-base-1.0"  # just the repo id
+HF_API_BASE = "https://router.huggingface.co/hf-inference/models"
+HF_IMG_MODEL = "black-forest-labs/FLUX.1-schnell"
+HF_IMG_URL = f"{HF_API_BASE}/{HF_IMG_MODEL}"
+
+HF_HEADERS = {"Authorization": f"Bearer {HF_API_TOKEN}"} if HF_API_TOKEN else {}
 
 
 @app.get("/items")
 def items():
     source = request.args.get("source", "books")
     query = request.args.get("q")
+
     try:
         items = get_items(source=source, query=query, limit=6)
         return jsonify(items), 200
@@ -54,11 +63,14 @@ def summarize():
             json_url = url + ".json" if not url.endswith(".json") else url
             resp = requests.get(json_url, timeout=10)
             work = resp.json()
+
             desc = work.get("description")
             if isinstance(desc, dict):
                 desc = desc.get("value", "")
+
             if not desc:
                 desc = f"Book: {work.get('title', 'Unknown title')}"
+
             desc = desc[:1200]
             summary = summarize_article_text(desc)
             return jsonify({"summary": summary}), 200
@@ -95,54 +107,24 @@ def cover():
         "soft lighting, " + desc[:150]
     )
 
-    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
-    payload = {
-        "model": HF_IMG_MODEL,
-        "inputs": prompt,
-    }
-
     try:
         resp = requests.post(
-            HF_API_BASE,
-            headers=headers,
-            json=payload,
-            timeout=60,
+            HF_IMG_URL,
+            headers=HF_HEADERS,
+            json={"inputs": prompt},
+            timeout=90,
         )
     except Exception as e:
-        return jsonify({"error": f"request to HF failed: {e}"}), 200
-
-    if resp.status_code == 410:
-        return jsonify(
-            {
-                "error": "HF router: old api-inference endpoint is deprecated. Using router.huggingface.co/hf-inference failed; check your token or model."
-            }
-        ), 200
-
-    if resp.status_code == 404:
-        return jsonify(
-            {
-                "error": (
-                    "HF image model not found (404). "
-                    "Check the model id 'stabilityai/stable-diffusion-xl-base-1.0' "
-                    "and that Inference is enabled for your account."
-                )
-            }
-        ), 200
-
-    if resp.status_code == 503:
-        return jsonify({"error": "HF model is loading, please try again."}), 200
+        return jsonify({"error": f"HF image generation network error: {e}"}), 200
 
     if resp.status_code != 200:
-        return (
-            jsonify(
-                {
-                    "error": f"HF image error {resp.status_code}: {resp.text[:200]}",
-                }
-            ),
-            200,
-        )
+        return jsonify({"error": f"HF image generation error {resp.status_code}: {resp.text[:300]}"}), 200
 
-    img_bytes = resp.content
+    try:
+        img_bytes = resp.content
+    except Exception as e:
+        return jsonify({"error": f"HF image response decode failed: {e}"}), 200
+
     b64 = base64.b64encode(img_bytes).decode("utf-8")
     return jsonify({"image_base64": b64}), 200
 

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "https://ai-summary-cover-e103.onrender.com";
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 export async function fetchItems(q?: string, source = "books") {
   try {
