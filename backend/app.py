@@ -12,10 +12,8 @@ CORS(app)
 
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
 
-
-HF_IMG_MODEL = (
-    "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-)
+HF_API_BASE = "https://router.huggingface.co/hf-inference"
+HF_IMG_MODEL = "stabilityai/stable-diffusion-xl-base-1.0"  # just the repo id
 
 
 @app.get("/items")
@@ -47,11 +45,9 @@ def summarize():
     text = data.get("text")
     url = data.get("url")
 
-
     if text:
         summary = summarize_article_text(text)
         return jsonify({"summary": summary}), 200
-
 
     if url and "openlibrary.org" in url and "/works/" in url:
         try:
@@ -69,7 +65,6 @@ def summarize():
         except Exception as e:
             return jsonify({"summary": f"Could not fetch book JSON: {e}"}), 200
 
-
     if url:
         try:
             resp = requests.get(url, timeout=10)
@@ -84,7 +79,6 @@ def summarize():
 
 @app.post("/cover")
 def cover():
-
     if not HF_API_TOKEN:
         return jsonify({"error": "HF_API_TOKEN not set"}), 200
 
@@ -102,24 +96,35 @@ def cover():
     )
 
     headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+    payload = {
+        "model": HF_IMG_MODEL,
+        "inputs": prompt,
+    }
 
     try:
         resp = requests.post(
-            HF_IMG_MODEL,
+            HF_API_BASE,
             headers=headers,
-            json={"inputs": prompt},
+            json=payload,
             timeout=60,
         )
     except Exception as e:
         return jsonify({"error": f"request to HF failed: {e}"}), 200
+
+    if resp.status_code == 410:
+        return jsonify(
+            {
+                "error": "HF router: old api-inference endpoint is deprecated. Using router.huggingface.co/hf-inference failed; check your token or model."
+            }
+        ), 200
 
     if resp.status_code == 404:
         return jsonify(
             {
                 "error": (
                     "HF image model not found (404). "
-                    "Change HF_IMG_MODEL in backend/app.py to another public model, "
-                    "e.g. 'stable-diffusion-v1-5/stable-diffusion-v1-5' or enable Inference API on the model page."
+                    "Check the model id 'stabilityai/stable-diffusion-xl-base-1.0' "
+                    "and that Inference is enabled for your account."
                 )
             }
         ), 200

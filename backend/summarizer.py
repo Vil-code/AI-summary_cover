@@ -2,9 +2,9 @@ import os
 import requests
 
 HF_API_TOKEN = os.getenv("HF_API_TOKEN")
-HF_MODEL_URL = (
-    "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6"
-)
+
+HF_MODEL_NAME = "sshleifer/distilbart-cnn-12-6"
+HF_API_BASE = "https://router.huggingface.co/hf-inference"
 
 
 def summarize_article_text(text: str) -> str:
@@ -15,6 +15,7 @@ def summarize_article_text(text: str) -> str:
 
     headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
     payload = {
+        "model": HF_MODEL_NAME,
         "inputs": text,
         "parameters": {
             "max_length": 180,
@@ -25,13 +26,15 @@ def summarize_article_text(text: str) -> str:
 
     try:
         resp = requests.post(
-            HF_MODEL_URL, headers=headers, json=payload, timeout=25
+            HF_API_BASE, headers=headers, json=payload, timeout=25
         )
     except requests.exceptions.ReadTimeout:
         return "Hugging Face endpoint was too slow (model may be loading). Try again."
 
     if resp.status_code == 503:
         return "Hugging Face model is loading — try again."
+    if resp.status_code == 410:
+        return "HF router: old API endpoint retired. Make sure you're using https://router.huggingface.co/hf-inference."
     if resp.status_code != 200:
         return f"HF API error {resp.status_code}: {resp.text[:200]}"
 
